@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="es">
+    <!--
+Desarrollado: Rodrigo Cutiño
+Equipo: Producto
+Versión: 2.1
+Alcance: Prueba consumo Web Services de xDoc Legacy y/o Global
+-->
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test WS xDoc - Cliente SOAP</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f0f2f5; color: #00625D;}
+        .container { max-width: 850px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { color: #00625D; border-bottom: 2px solid #EB7A20; padding-bottom: 10px;}
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input, textarea, select { width: 90%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; }
+        textarea { height: 120px; font-family: 'Consolas', monospace; resize: vertical; }
+        
+        .button-group { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        
+        button { background-color: #00625D; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 14px; min-width: 180px; font-weight: bold; transition: ease 0.3s; }
+        button:hover { background-color: #EB7A20; }
+        
+        .btn-preview { background-color: #00625D; }
+        .btn-save { background-color: #00625D; }
+        
+        .result-area { margin-top: 25px; }
+        #responseOutput { background: #282c34; color: #abb2bf; height: 250px; }
+        .footer-note { font-size: 11px; color: #888; margin-top: 20px; text-align: center; }
+
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.7); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 20px; border: 1px solid #888; width: 80%; border-radius: 8px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        #xmlPreviewArea { background: #282c34; color: #e06c75; padding: 15px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word; font-family: monospace; max-height: 400px; overflow-y: auto; margin-top: 15px; }
+        .close { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close:hover { color: black; }
+        
+        /* Ocultar elementos dinámicamente */
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Gosocket | xDoc Legacy/Global</h2>
+    <h4>Panel de Pruebas Web Service 2.6</h4>
+    
+    <div class="form-group">
+        <label>URL del Servicio Core.asmx:</label>
+        <input type="text" id="wsUrl" value="http://localhost/ws-xdoc/Core.asmx" placeholder="http://localhost/ws-xdoc/Core.asmx">
+    </div>
+
+    <div class="form-grid">
+        <div class="form-group">
+            <label>Método (Operación):</label>
+            <select id="methodName">
+                <option value="ConvertDocument">ConvertDocument</option>
+                <option value="ConvertSignDocument">ConvertSignDocument</option>
+                <option value="SendFile">SendFile</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Nombre Parámetros:</label>
+            <select id="paramCase">
+                <option value="Minúscula">Minúscula</option>
+                <option value="Mayúscula">Mayúscula</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Área:</label>
+            <input type="text" id="area" value="" required placeholder="Nombre del área de xDoc">
+        </div>
+        <div class="form-group">
+            <label>Password:</label>
+            <input type="text" id="password" value="" required placeholder="Password del área de xDoc">
+        </div>
+        <div class="form-group">
+            <label>Document Type:</label>
+            <input type="text" id="docType" value="" required placeholder="Código del tipo de documento">
+        </div>
+        <div class="form-group">
+            <label>Contenido:</label>
+            <select id="contentType" onchange="toggleContentInput()">
+                <option value="Copiar contenido">Copiar contenido</option>
+                <option value="Importar archivo">Importar archivo</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group" id="textAreaGroup">
+        <label>Contenido del Documento (CDATA):</label>
+        <textarea id="docContent" placeholder="Pega aquí el contenido como texto... Importante!! Considera el Encoding y los caracteres especiales"></textarea>
+    </div>
+
+    <div class="form-group hidden" id="fileInputGroup">
+        <label>Seleccionar Archivo:</label>
+        <input type="file" id="fileInput">
+    </div>
+
+    <div class="button-group">
+        <button onclick="sendSoapRequest()">Enviar Solicitud</button>
+        <button class="btn-preview" onclick="showXmlPreview()">Previsualizar XML</button>
+        <button class="btn-save" onclick="saveResponse()">Guardar Respuesta (.html)</button>
+    </div>
+
+    <div class="result-area">
+        <label>Respuesta del Servidor:</label>
+        <textarea id="responseOutput" readonly placeholder="Respuesta del servidor"></textarea>
+    </div>
+    
+    <p class="footer-note">Solo uso interno Gosocket - Desarrollado por el área de Producto Gosocket</p>
+</div>
+
+<div id="xmlModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Previsualización del XML (SOAP Body)</h3>
+            <span class="close" onclick="closeModal()">&times;</span>
+        </div>
+        <div id="xmlPreviewArea"></div>
+    </div>
+</div>
+
+<script>
+    let importedFileContent = "";
+
+    function toggleContentInput() {
+        const type = document.getElementById('contentType').value;
+        const textAreaGroup = document.getElementById('textAreaGroup');
+        const fileInputGroup = document.getElementById('fileInputGroup');
+        
+        if (type === "Importar archivo") {
+            textAreaGroup.classList.add('hidden');
+            fileInputGroup.classList.remove('hidden');
+        } else {
+            textAreaGroup.classList.remove('hidden');
+            fileInputGroup.classList.add('hidden');
+        }
+    }
+
+    async function getFinalContent() {
+        const type = document.getElementById('contentType').value;
+        if (type === "Importar archivo") {
+            const fileInput = document.getElementById('fileInput');
+            if (fileInput.files.length > 0) {
+                return await fileInput.files[0].text();
+            }
+            return "";
+        }
+        return document.getElementById('docContent').value;
+    }
+
+    async function buildSoapEnvelope() {
+        const method = document.getElementById('methodName').value;
+        const paramCase = document.getElementById('paramCase').value;
+        const area = document.getElementById('area').value;
+        const password = document.getElementById('password').value;
+        const docType = document.getElementById('docType').value;
+        const docContent = await getFinalContent();
+
+        let nArea = paramCase === "Mayúscula" ? "Area" : "area";
+        let nPass = paramCase === "Mayúscula" ? "Password" : "password";
+        let nType = paramCase === "Mayúscula" ? "DocumentType" : "documenttype";
+        let nContent = paramCase === "Mayúscula" ? "DocumentContent" : "documentcontent";
+
+        return `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <${method} xmlns="http://tempuri.org/">
+      <${nArea}>${area}</${nArea}>
+      <${nPass}>${password}</${nPass}>
+      <${nType}>${docType}</${nType}>
+      <${nContent}><![CDATA[${docContent}]]></${nContent}>
+    </${method}>
+  </soap:Body>
+</soap:Envelope>`;
+    }
+
+    async function sendSoapRequest() {
+        const url = document.getElementById('wsUrl').value;
+        const method = document.getElementById('methodName').value;
+        const output = document.getElementById('responseOutput');
+        
+        output.value = "Enviando solicitud...";
+        const soapEnvelope = await buildSoapEnvelope();
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/xml; charset=utf-8',
+                    'SOAPAction': `http://tempuri.org/${method}`
+                },
+                body: soapEnvelope
+            });
+
+            const responseText = await response.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(responseText, "text/xml");
+            const resultTagName = method + "Result";
+            const result = xmlDoc.getElementsByTagName(resultTagName)[0]?.textContent;
+
+            output.value = result ? result : responseText;
+        } catch (error) {
+            output.value = "ERROR DE CONEXIÓN:\n" + error.message;
+        }
+    }
+
+    async function showXmlPreview() {
+        const modal = document.getElementById("xmlModal");
+        const previewArea = document.getElementById("xmlPreviewArea");
+        const xml = await buildSoapEnvelope();
+        previewArea.textContent = xml;
+        modal.style.display = "block";
+    }
+
+    function closeModal() {
+        document.getElementById("xmlModal").style.display = "none";
+    }
+
+    window.onclick = function(event) {
+        let modal = document.getElementById("xmlModal");
+        if (event.target == modal) closeModal();
+    }
+
+    function saveResponse() {
+        const content = document.getElementById('responseOutput').value;
+        const method = document.getElementById('methodName').value;
+        if (!content || content.startsWith("ERROR")) { alert("No hay respuesta válida."); return; }
+        const blob = new Blob([content], { type: 'text/html' });
+        const link = document.createElement('a');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        link.href = window.URL.createObjectURL(blob);
+        link.download = `Respuesta_${method}_${timestamp}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
