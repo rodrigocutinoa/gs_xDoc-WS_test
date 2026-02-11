@@ -206,7 +206,7 @@ Alcance: Prueba consumo Web Services de xDoc Legacy y/o Global
 
             output.value = result ? result : responseText;
         } catch (error) {
-            output.value = "ERROR DE CONEXIÓN:\n" + error.message;
+            output.value = "ERROR DE CONEXIÓN A LA URL DEL SERVICIO Core.asmx:\n" + "No se pudo conectar a la URL -> " + url + "\n" + error.message;
         }
     }
 
